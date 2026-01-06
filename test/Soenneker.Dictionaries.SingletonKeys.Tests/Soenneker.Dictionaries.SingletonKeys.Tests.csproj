@@ -14,6 +14,7 @@
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
             <PrivateAssets>all</PrivateAssets>
         </PackageReference>
+        <PackageReference Include="AwesomeAssertions" Version="9.3.0" />
         <PackageReference Include="xUnit.v3" Version="3.2.1" />
     </ItemGroup>
 

@@ -5,8 +5,7 @@ using Soenneker.Extensions.ValueTask;
 
 namespace Soenneker.Dictionaries.SingletonKeys;
 
-public partial class SingletonKeyDictionary<TKey, TValue, T1, T2>
-    where TKey : notnull
+public partial class SingletonKeyDictionary<TKey, TValue, T1, T2> where TKey : notnull
 {
     public async ValueTask<Dictionary<TKey, TValue>> GetAll(CancellationToken cancellationToken = default)
     {
@@ -83,5 +82,3 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1, T2>
         }
     }
 }
-
-
