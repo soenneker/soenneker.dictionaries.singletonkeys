@@ -14,7 +14,7 @@
         <Version Condition="'$(BUILD_VERSION)' != ''">$(BUILD_VERSION)</Version>
         <AssemblyName>Soenneker.Dictionaries.SingletonKeys</AssemblyName>
         <PackageId>Soenneker.Dictionaries.SingletonKeys</PackageId>
-        <PackageTags>dictionaries singletonkeys dictionary singleton singletonkey keyed struct key singletonkeydictionary util csharp dotnet c# .net</PackageTags>
+        <PackageTags>dictionaries singletonkeys dictionary singleton singletonkey keyed struct key singletonkeydictionary util csharp dotnet c# .net singletondictionary</PackageTags>
         <Copyright>Copyright © 2026 Jake Soenneker</Copyright>
         <Authors>Jake Soenneker</Authors>
         <Company>https://soenneker.com</Company>
