@@ -18,8 +18,8 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1> : ISingletonKeyDic
     private ConcurrentDictionary<TKey, TValue>? _dictionary;
     private readonly AsyncLock _lock;
 
-    private Func<TKey, CancellationToken, T1, ValueTask<TValue>>? _asyncKeyTokenFunc;
-    private Func<TKey, CancellationToken, T1, TValue>? _keyTokenFunc;
+    private Func<TKey, T1, CancellationToken, ValueTask<TValue>>? _asyncKeyTokenFunc;
+    private Func<TKey, T1, CancellationToken, TValue>? _keyTokenFunc;
 
     private Func<TKey, T1, ValueTask<TValue>>? _asyncKeyFunc;
     private Func<TKey, T1, TValue>? _keyFunc;
@@ -42,7 +42,7 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1> : ISingletonKeyDic
         _asyncKeyFunc = func;
     }
 
-    public SingletonKeyDictionary(Func<TKey, CancellationToken, T1, ValueTask<TValue>> func) : this()
+    public SingletonKeyDictionary(Func<TKey, T1, CancellationToken, ValueTask<TValue>> func) : this()
     {
         _initializationMode = InitializationMode.AsyncKeyToken;
         _asyncKeyTokenFunc = func;
@@ -60,7 +60,7 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1> : ISingletonKeyDic
         _keyFunc = func;
     }
 
-    public SingletonKeyDictionary(Func<TKey, CancellationToken, T1, TValue> func) : this()
+    public SingletonKeyDictionary(Func<TKey, T1, CancellationToken, TValue> func) : this()
     {
         _initializationMode = InitializationMode.SyncKeyToken;
         _keyTokenFunc = func;
@@ -264,7 +264,7 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1> : ISingletonKeyDic
                 if (_asyncKeyTokenFunc is null)
                     throw new NullReferenceException("Initialization func for SingletonKeyDictionary cannot be null");
 
-                return _asyncKeyTokenFunc(key, cancellationToken, arg);
+                return _asyncKeyTokenFunc(key, arg, cancellationToken);
 
             case InitializationMode.AsyncValue:
                 if (_asyncFunc is null)
@@ -282,7 +282,7 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1> : ISingletonKeyDic
                 if (_keyTokenFunc is null)
                     throw new NullReferenceException("Initialization func for SingletonKeyDictionary cannot be null");
 
-                return new ValueTask<TValue>(_keyTokenFunc(key, cancellationToken, arg));
+                return new ValueTask<TValue>(_keyTokenFunc(key, arg, cancellationToken));
 
             case InitializationMode.SyncKeyValue:
                 if (_keyFunc is null)
@@ -313,7 +313,7 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1> : ISingletonKeyDic
                 if (_asyncKeyTokenFunc is null)
                     throw new NullReferenceException("Initialization func for SingletonKeyDictionary cannot be null");
 
-                return _asyncKeyTokenFunc(key, cancellationToken, arg)
+                return _asyncKeyTokenFunc(key, arg, cancellationToken)
                     .AwaitSync();
 
             case InitializationMode.AsyncValue:
@@ -333,7 +333,7 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1> : ISingletonKeyDic
                 if (_keyTokenFunc is null)
                     throw new NullReferenceException("Initialization func for SingletonKeyDictionary cannot be null");
 
-                return _keyTokenFunc(key, cancellationToken, arg);
+                return _keyTokenFunc(key, arg, cancellationToken);
 
             case InitializationMode.SyncValue:
                 if (_func is null)
@@ -354,7 +354,7 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1> : ISingletonKeyDic
         _asyncKeyFunc = func;
     }
 
-    public void SetInitialization(Func<TKey, CancellationToken, T1, ValueTask<TValue>> func)
+    public void SetInitialization(Func<TKey, T1, CancellationToken, ValueTask<TValue>> func)
     {
         EnsureInitializationNotSet();
 
@@ -386,7 +386,7 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1> : ISingletonKeyDic
         _keyFunc = func;
     }
 
-    public void SetInitialization(Func<TKey, CancellationToken, T1, TValue> func)
+    public void SetInitialization(Func<TKey, T1, CancellationToken, TValue> func)
     {
         EnsureInitializationNotSet();
 

@@ -2,6 +2,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using AwesomeAssertions;
+using Soenneker.Dictionaries.SingletonKeys;
 using Xunit;
 
 namespace Soenneker.Dictionaries.SingletonKeys.Tests;
