@@ -15,7 +15,7 @@
             <PrivateAssets>all</PrivateAssets>
         </PackageReference>
         <PackageReference Include="AwesomeAssertions" Version="9.3.0" />
-        <PackageReference Include="xUnit.v3" Version="3.2.1" />
+        <PackageReference Include="xUnit.v3" Version="3.2.2" />
     </ItemGroup>
 
     <ItemGroup>
