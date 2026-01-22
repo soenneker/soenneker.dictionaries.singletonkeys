@@ -44,7 +44,7 @@
 
     <ItemGroup>
         <PackageReference Include="Intellenum" Version="2.0.1" />
-        <PackageReference Include="Soenneker.Asyncs.Locks" Version="4.0.11" />
+        <PackageReference Include="Soenneker.Asyncs.Locks" Version="4.0.12" />
         <PackageReference Include="Soenneker.Enums.InitializationModes" Version="4.0.1" />
         <PackageReference Include="Soenneker.Extensions.Enumerable" Version="4.0.593" />
         <PackageReference Include="Soenneker.Extensions.ValueTask" Version="4.0.104" />
