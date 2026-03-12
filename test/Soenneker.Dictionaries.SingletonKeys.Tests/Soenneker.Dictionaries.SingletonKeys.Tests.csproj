@@ -16,7 +16,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\src\Soenneker.Dictionaries.SingletonKeys.csproj" />
+        <ProjectReference Include="..\..\src\Soenneker.Dictionaries.SingletonKeys\Soenneker.Dictionaries.SingletonKeys.csproj" />
     </ItemGroup>
 
     <ItemGroup>
