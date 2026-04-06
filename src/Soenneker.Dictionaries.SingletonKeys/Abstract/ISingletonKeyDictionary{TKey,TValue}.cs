@@ -6,17 +6,24 @@ using System.Threading.Tasks;
 namespace Soenneker.Dictionaries.SingletonKeys.Abstract;
 
 /// <summary>
-/// A singleton dictionary keyed by <typeparamref name="TKey"/>, using double-check async locking for initialization.
+/// A keyed singleton cache that creates at most one logical value per <typeparamref name="TKey"/> and reuses it for subsequent lookups.
 /// </summary>
 /// <typeparam name="TKey">The key type. Must be non-null.</typeparam>
 /// <typeparam name="TValue">The cached value type.</typeparam>
-/// <remarks>Be sure to dispose of this gracefully if using a disposable value type.</remarks>
+/// <remarks>
+/// Value creation is coordinated with double-check locking.
+/// Removal APIs intentionally have different semantics:
+/// <see cref="TryRemove(TKey, out TValue?)"/> does not dispose,
+/// <see cref="TryRemoveAndDispose(TKey)"/> is the fast no-lock remove path,
+/// <see cref="Remove(TKey, CancellationToken)"/> is an alias for that fast path,
+/// and <see cref="Evict(TKey, CancellationToken)"/> is the stronger option for races with in-flight creation.
+/// </remarks>
 public partial interface ISingletonKeyDictionary<TKey, TValue> : IDisposable, IAsyncDisposable
     where TKey : notnull
 {
     /// <summary>
     /// Retrieves the singleton value associated with <paramref name="key"/>, creating and caching it if it does not already exist.
-    /// Uses double-check async locking to guarantee there is only one initialized instance per key.
+    /// If another concurrent creation wins the add race, the newly created instance is disposed and the existing cached value is returned.
     /// </summary>
     /// <param name="key">The key identifying the singleton value.</param>
     /// <param name="cancellationToken">Cancellation token used while waiting to acquire the initialization lock.</param>
@@ -88,7 +95,7 @@ public partial interface ISingletonKeyDictionary<TKey, TValue> : IDisposable, IA
     /// <param name="state">The state object to pass to the factory when creating values.</param>
     /// <param name="factory">Factory invoked to create values for a given key.</param>
     /// <returns>This instance, configured to use the provided stateful factory.</returns>
-    /// <exception cref="Exception">Thrown if initialization has already been configured.</exception>
+    /// <exception cref="InvalidOperationException">Thrown if initialization has already been configured.</exception>
     SingletonKeyDictionary<TKey, TValue> Initialize<TState>(TState state, Func<TState, TKey, CancellationToken, ValueTask<TValue>> factory)
         where TState : notnull;
 
@@ -96,61 +103,119 @@ public partial interface ISingletonKeyDictionary<TKey, TValue> : IDisposable, IA
     /// Sets the async initialization function used to create values for a key.
     /// </summary>
     /// <param name="func">The factory invoked when a key is missing.</param>
-    /// <exception cref="Exception">Thrown if initialization has already been configured.</exception>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="func"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">Thrown if initialization has already been configured.</exception>
     void SetInitialization(Func<TKey, ValueTask<TValue>> func);
 
     /// <summary>
     /// Sets the async initialization function used to create values for a key, with cancellation support.
     /// </summary>
     /// <param name="func">The factory invoked when a key is missing.</param>
-    /// <exception cref="Exception">Thrown if initialization has already been configured.</exception>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="func"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">Thrown if initialization has already been configured.</exception>
     void SetInitialization(Func<TKey, CancellationToken, ValueTask<TValue>> func);
 
     /// <summary>
     /// Sets the async initialization function used to create values without a key.
     /// </summary>
     /// <param name="func">The factory invoked when a key is missing.</param>
-    /// <exception cref="Exception">Thrown if initialization has already been configured.</exception>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="func"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">Thrown if initialization has already been configured.</exception>
     void SetInitialization(Func<ValueTask<TValue>> func);
 
     /// <summary>
     /// Sets the synchronous initialization function used to create values without a key.
     /// </summary>
     /// <param name="func">The factory invoked when a key is missing.</param>
-    /// <exception cref="Exception">Thrown if initialization has already been configured.</exception>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="func"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">Thrown if initialization has already been configured.</exception>
     void SetInitialization(Func<TValue> func);
 
     /// <summary>
     /// Sets the synchronous initialization function used to create values for a key.
     /// </summary>
     /// <param name="func">The factory invoked when a key is missing.</param>
-    /// <exception cref="Exception">Thrown if initialization has already been configured.</exception>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="func"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">Thrown if initialization has already been configured.</exception>
     void SetInitialization(Func<TKey, TValue> func);
 
     /// <summary>
     /// Sets the synchronous initialization function used to create values for a key, with cancellation support.
     /// </summary>
     /// <param name="func">The factory invoked when a key is missing.</param>
-    /// <exception cref="Exception">Thrown if initialization has already been configured.</exception>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="func"/> is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException">Thrown if initialization has already been configured.</exception>
     void SetInitialization(Func<TKey, CancellationToken, TValue> func);
 
     /// <summary>
-    /// Removes the value associated with <paramref name="key"/> and disposes it if applicable.
+    /// Attempts to remove the current value for <paramref name="key"/> without disposing it.
+    /// This is a direct pass-through to the underlying dictionary and does not coordinate with in-flight creation.
     /// </summary>
     /// <param name="key">The key to remove.</param>
-    /// <param name="cancellationToken">Cancellation token used while waiting to acquire the removal lock.</param>
-    /// <returns>A task that completes when removal and disposal have finished.</returns>
+    /// <param name="value">When this method returns, contains the removed value if one was present; otherwise, the default value.</param>
+    /// <returns><see langword="true"/> if a value was removed; otherwise, <see langword="false"/>.</returns>
     /// <exception cref="ObjectDisposedException">Thrown if the dictionary has been disposed.</exception>
-    ValueTask Remove(TKey key, CancellationToken cancellationToken = default);
+    bool TryRemove(TKey key, out TValue? value);
 
     /// <summary>
-    /// Synchronously removes the value associated with <paramref name="key"/> and disposes it if applicable.
+    /// Attempts to remove the current value for <paramref name="key"/> and dispose it if applicable.
+    /// This is the fast no-lock removal path and only affects the value currently stored at the time of removal.
+    /// </summary>
+    /// <param name="key">The key to remove.</param>
+    /// <returns><see langword="true"/> if a value was removed and disposed; otherwise, <see langword="false"/>.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown if the dictionary has been disposed.</exception>
+    ValueTask<bool> TryRemoveAndDispose(TKey key);
+
+    /// <summary>
+    /// Synchronously attempts to remove the current value for <paramref name="key"/> and dispose it if applicable.
+    /// This is the fast no-lock removal path and only affects the value currently stored at the time of removal.
+    /// </summary>
+    /// <param name="key">The key to remove.</param>
+    /// <returns><see langword="true"/> if a value was removed and disposed; otherwise, <see langword="false"/>.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown if the dictionary has been disposed.</exception>
+    bool TryRemoveAndDisposeSync(TKey key);
+
+    /// <summary>
+    /// Removes and disposes the current value associated with <paramref name="key"/>.
+    /// This is the same fast no-lock behavior as <see cref="TryRemoveAndDispose(TKey)"/> and does not retry under the creation lock.
+    /// </summary>
+    /// <param name="key">The key to remove.</param>
+    /// <param name="cancellationToken">Unused for the fast path. Included for API consistency.</param>
+    /// <returns><see langword="true"/> if the current value was removed and disposed; otherwise, <see langword="false"/>.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown if the dictionary has been disposed.</exception>
+    ValueTask<bool> Remove(TKey key, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Synchronously removes and disposes the current value associated with <paramref name="key"/>.
+    /// This is the same fast no-lock behavior as <see cref="TryRemoveAndDisposeSync(TKey)"/> and does not retry under the creation lock.
     /// </summary>
     /// <remarks>Prefer <see cref="Remove(TKey, CancellationToken)"/> when possible.</remarks>
     /// <param name="key">The key to remove.</param>
-    /// <param name="cancellationToken">Cancellation token used while waiting to acquire the removal lock.</param>
+    /// <param name="cancellationToken">Unused for the fast path. Included for API consistency.</param>
+    /// <returns><see langword="true"/> if the current value was removed and disposed; otherwise, <see langword="false"/>.</returns>
     /// <exception cref="ObjectDisposedException">Thrown if the dictionary has been disposed.</exception>
-    void RemoveSync(TKey key, CancellationToken cancellationToken = default);
+    bool RemoveSync(TKey key, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Strongly removes the value associated with <paramref name="key"/>, handling races with in-flight creation, and disposes it if applicable.
+    /// Prefer this method when removal must account for a value being added between a fast remove attempt and lock acquisition.
+    /// </summary>
+    /// <param name="key">The key to evict.</param>
+    /// <param name="cancellationToken">Cancellation token used while waiting to acquire the eviction lock.</param>
+    /// <returns><see langword="true"/> if a value was removed; otherwise, <see langword="false"/>.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown if the dictionary has been disposed.</exception>
+    ValueTask<bool> Evict(TKey key, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Synchronously evicts the value associated with <paramref name="key"/>, handling races with in-flight creation, and disposes it if applicable.
+    /// Prefer this method when removal must account for a value being added between a fast remove attempt and lock acquisition.
+    /// </summary>
+    /// <remarks>Prefer <see cref="Evict(TKey, CancellationToken)"/> when possible.</remarks>
+    /// <param name="key">The key to evict.</param>
+    /// <param name="cancellationToken">Cancellation token used while waiting to acquire the eviction lock.</param>
+    /// <returns><see langword="true"/> if a value was removed; otherwise, <see langword="false"/>.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown if the dictionary has been disposed.</exception>
+    bool EvictSync(TKey key, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Disposes the dictionary and disposes all cached values where applicable.
@@ -167,5 +232,3 @@ public partial interface ISingletonKeyDictionary<TKey, TValue> : IDisposable, IA
     /// </summary>
     new ValueTask DisposeAsync();
 }
-
-

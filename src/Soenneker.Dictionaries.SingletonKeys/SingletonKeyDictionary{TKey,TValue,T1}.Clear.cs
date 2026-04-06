@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -9,18 +10,16 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1> where TKey : notnu
 {
     public void ClearSync()
     {
-        ThrowIfDisposed();
-
         using (_lock.LockSync())
         {
-            ThrowIfDisposed();
+            ConcurrentDictionary<TKey, TValue> dict = GetDictionaryOrThrow();
 
-            if (_dictionary is null || _dictionary.IsEmpty)
+            if (dict.IsEmpty)
                 return;
 
-            foreach (KeyValuePair<TKey, TValue> kvp in _dictionary)
+            foreach (KeyValuePair<TKey, TValue> kvp in dict)
             {
-                if (_dictionary.TryRemove(kvp.Key, out TValue? instance))
+                if (dict.TryRemove(kvp.Key, out TValue? instance))
                     DisposeRemovedInstanceSync(instance);
             }
         }
@@ -28,19 +27,17 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1> where TKey : notnu
 
     public async ValueTask Clear(CancellationToken cancellationToken = default)
     {
-        ThrowIfDisposed();
-
         using (await _lock.Lock(cancellationToken)
                           .NoSync())
         {
-            ThrowIfDisposed();
+            ConcurrentDictionary<TKey, TValue> dict = GetDictionaryOrThrow();
 
-            if (_dictionary is null || _dictionary.IsEmpty)
+            if (dict.IsEmpty)
                 return;
 
-            foreach (KeyValuePair<TKey, TValue> kvp in _dictionary)
+            foreach (KeyValuePair<TKey, TValue> kvp in dict)
             {
-                if (_dictionary.TryRemove(kvp.Key, out TValue? instance))
+                if (dict.TryRemove(kvp.Key, out TValue? instance))
                     await DisposeRemovedInstance(instance)
                         .NoSync();
             }

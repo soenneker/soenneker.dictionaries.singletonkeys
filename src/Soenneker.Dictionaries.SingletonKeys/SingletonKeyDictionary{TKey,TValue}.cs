@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -79,61 +78,51 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryGet(TKey key, out TValue? value)
     {
-        ThrowIfDisposed();
-
-        ConcurrentDictionary<TKey, TValue>? dict = _dictionary;
-
-        if (dict is null)
-        {
-            value = default;
-            return false;
-        }
-
+        ConcurrentDictionary<TKey, TValue> dict = GetDictionaryOrThrow();
         return dict.TryGetValue(key, out value);
     }
 
     public async ValueTask<TValue> GetCore(TKey key, CancellationToken cancellationToken)
     {
-        ThrowIfDisposed();
+        ConcurrentDictionary<TKey, TValue> dict = GetDictionaryOrThrow();
 
-        if (_dictionary!.TryGetValue(key, out TValue? instance))
+        if (dict.TryGetValue(key, out TValue? instance))
             return instance;
 
         using (await _lock.Lock(cancellationToken)
                           .NoSync())
         {
-            ThrowIfDisposed();
+            dict = GetDictionaryOrThrow();
 
-            if (_dictionary.TryGetValue(key, out instance))
+            if (dict.TryGetValue(key, out instance))
                 return instance;
 
             instance = await GetInternal(key, cancellationToken)
                 .NoSync();
-            _dictionary.TryAdd(key, instance);
-        }
 
-        return instance;
+            return await TryAddOrGetExisting(key, instance, dict)
+                .NoSync();
+        }
     }
 
     public TValue GetSync(TKey key, CancellationToken cancellationToken = default)
     {
-        ThrowIfDisposed();
+        ConcurrentDictionary<TKey, TValue> dict = GetDictionaryOrThrow();
 
-        if (_dictionary!.TryGetValue(key, out TValue? instance))
+        if (dict.TryGetValue(key, out TValue? instance))
             return instance;
 
         using (_lock.LockSync(cancellationToken))
         {
-            ThrowIfDisposed();
+            dict = GetDictionaryOrThrow();
 
-            if (_dictionary.TryGetValue(key, out instance))
+            if (dict.TryGetValue(key, out instance))
                 return instance;
 
             instance = GetInternalSync(key, cancellationToken);
-            _dictionary.TryAdd(key, instance);
-        }
 
-        return instance;
+            return TryAddOrGetExistingSync(key, instance, dict);
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -225,6 +214,7 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
 
     public void SetInitialization(Func<TKey, ValueTask<TValue>> func)
     {
+        ArgumentNullException.ThrowIfNull(func);
         EnsureInitializationNotSet();
         _initializationMode = InitializationMode.AsyncKey;
         _asyncKeyFunc = func;
@@ -232,6 +222,7 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
 
     public void SetInitialization(Func<TKey, CancellationToken, ValueTask<TValue>> func)
     {
+        ArgumentNullException.ThrowIfNull(func);
         EnsureInitializationNotSet();
         _initializationMode = InitializationMode.AsyncKeyToken;
         _asyncKeyTokenFunc = func;
@@ -239,6 +230,7 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
 
     public void SetInitialization(Func<ValueTask<TValue>> func)
     {
+        ArgumentNullException.ThrowIfNull(func);
         EnsureInitializationNotSet();
         _initializationMode = InitializationMode.Async;
         _asyncFunc = func;
@@ -246,6 +238,7 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
 
     public void SetInitialization(Func<TValue> func)
     {
+        ArgumentNullException.ThrowIfNull(func);
         EnsureInitializationNotSet();
         _initializationMode = InitializationMode.Sync;
         _func = func;
@@ -253,6 +246,7 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
 
     public void SetInitialization(Func<TKey, TValue> func)
     {
+        ArgumentNullException.ThrowIfNull(func);
         EnsureInitializationNotSet();
         _initializationMode = InitializationMode.SyncKey;
         _keyFunc = func;
@@ -260,6 +254,7 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
 
     public void SetInitialization(Func<TKey, CancellationToken, TValue> func)
     {
+        ArgumentNullException.ThrowIfNull(func);
         EnsureInitializationNotSet();
         _initializationMode = InitializationMode.SyncKeyToken;
         _keyTokenFunc = func;
@@ -267,6 +262,8 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
 
     public void SetInitialization<TState>(TState state, Func<TState, TKey, CancellationToken, ValueTask<TValue>> factory) where TState : notnull
     {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(factory);
         EnsureInitializationNotSet();
         _stateFactory = new SingletonKeyDictionaryStateFactory<TKey, TValue, TState>(state, factory);
     }
@@ -275,48 +272,94 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
     private void EnsureInitializationNotSet()
     {
         if (_initializationMode is not null || _stateFactory is not null)
-            throw new Exception("Setting the initialization of a SingletonKeyDictionary after it has already been set is not allowed");
+            throw new InvalidOperationException("Setting the initialization of a SingletonKeyDictionary after it has already been set is not allowed");
     }
 
-    public async ValueTask Remove(TKey key, CancellationToken cancellationToken = default)
-    {
-        ThrowIfDisposed();
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public ValueTask<bool> Remove(TKey key, CancellationToken cancellationToken = default) => TryRemoveAndDispose(key);
 
-        if (_dictionary!.TryRemove(key, out TValue? instance))
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool RemoveSync(TKey key, CancellationToken cancellationToken = default) => TryRemoveAndDisposeSync(key);
+
+    public async ValueTask<bool> Evict(TKey key, CancellationToken cancellationToken = default)
+    {
+        ConcurrentDictionary<TKey, TValue> dict = GetDictionaryOrThrow();
+
+        if (dict.TryRemove(key, out TValue? instance))
         {
             await DisposeRemovedInstance(instance)
                 .NoSync();
-            return;
+            return true;
         }
 
         using (await _lock.Lock(cancellationToken)
                           .NoSync())
         {
-            ThrowIfDisposed();
+            dict = GetDictionaryOrThrow();
 
-            if (_dictionary is not null && _dictionary.TryRemove(key, out instance))
-                await DisposeRemovedInstance(instance)
-                    .NoSync();
+            if (!dict.TryRemove(key, out instance))
+                return false;
         }
+
+        await DisposeRemovedInstance(instance)
+            .NoSync();
+
+        return true;
     }
 
-    public void RemoveSync(TKey key, CancellationToken cancellationToken = default)
+    public bool EvictSync(TKey key, CancellationToken cancellationToken = default)
     {
-        ThrowIfDisposed();
+        ConcurrentDictionary<TKey, TValue> dict = GetDictionaryOrThrow();
 
-        if (_dictionary!.TryRemove(key, out TValue? instance))
+        if (dict.TryRemove(key, out TValue? instance))
         {
             DisposeRemovedInstanceSync(instance);
-            return;
+            return true;
         }
 
         using (_lock.LockSync(cancellationToken))
         {
-            ThrowIfDisposed();
+            dict = GetDictionaryOrThrow();
 
-            if (_dictionary is not null && _dictionary.TryRemove(key, out instance))
-                DisposeRemovedInstanceSync(instance);
+            if (!dict.TryRemove(key, out instance))
+                return false;
         }
+
+        DisposeRemovedInstanceSync(instance);
+        return true;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool TryRemove(TKey key, out TValue? value)
+    {
+        ConcurrentDictionary<TKey, TValue> dict = GetDictionaryOrThrow();
+        return dict.TryRemove(key, out value);
+    }
+
+    public async ValueTask<bool> TryRemoveAndDispose(TKey key)
+    {
+        ConcurrentDictionary<TKey, TValue> dict = GetDictionaryOrThrow();
+
+        if (dict.TryRemove(key, out TValue? instance))
+        {
+            await DisposeRemovedInstance(instance).NoSync();
+            return true;
+        }
+
+        return false;
+    }
+
+    public bool TryRemoveAndDisposeSync(TKey key)
+    {
+        ConcurrentDictionary<TKey, TValue> dict = GetDictionaryOrThrow();
+
+        if (dict.TryRemove(key, out TValue? instance))
+        {
+            DisposeRemovedInstanceSync(instance);
+            return true;
+        }
+
+        return false;
     }
 
     public void Dispose()
@@ -330,10 +373,9 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
         if (dict is null || dict.IsEmpty)
             return;
 
-        foreach (KeyValuePair<TKey, TValue> kvp in dict)
+        foreach (TValue value in dict.Values)
         {
-            if (dict.TryRemove(kvp.Key, out TValue? instance))
-                DisposeRemovedInstanceSync(instance);
+            DisposeRemovedInstanceSync(value);
         }
     }
 
@@ -348,24 +390,56 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
         if (dict is null || dict.IsEmpty)
             return;
 
-        foreach (KeyValuePair<TKey, TValue> kvp in dict)
+        foreach (TValue value in dict.Values)
         {
-            if (dict.TryRemove(kvp.Key, out TValue? instance))
-                await DisposeRemovedInstance(instance)
-                    .NoSync();
+            await DisposeRemovedInstance(value)
+                .NoSync();
         }
+    }
+
+    private async ValueTask<TValue> TryAddOrGetExisting(TKey key, TValue created, ConcurrentDictionary<TKey, TValue> dict)
+    {
+        if (dict.TryAdd(key, created))
+            return created;
+
+        if (dict.TryGetValue(key, out TValue? existing))
+        {
+            await DisposeRemovedInstance(created)
+                .NoSync();
+            return existing;
+        }
+
+        await DisposeRemovedInstance(created)
+            .NoSync();
+
+        throw new InvalidOperationException("Unable to add or retrieve an existing singleton value.");
+    }
+
+    private TValue TryAddOrGetExistingSync(TKey key, TValue created, ConcurrentDictionary<TKey, TValue> dict)
+    {
+        if (dict.TryAdd(key, created))
+            return created;
+
+        if (dict.TryGetValue(key, out TValue? existing))
+        {
+            DisposeRemovedInstanceSync(created);
+            return existing;
+        }
+
+        DisposeRemovedInstanceSync(created);
+        throw new InvalidOperationException("Unable to add or retrieve an existing singleton value.");
     }
 
     private static void DisposeRemovedInstanceSync(TValue instance)
     {
         switch (instance)
         {
-            case IDisposable disposable:
-                disposable.Dispose();
-                break;
             case IAsyncDisposable asyncDisposable:
                 asyncDisposable.DisposeAsync()
                                .AwaitSync();
+                break;
+            case IDisposable disposable:
+                disposable.Dispose();
                 break;
         }
     }
@@ -382,6 +456,17 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
                 disposable.Dispose();
                 break;
         }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private ConcurrentDictionary<TKey, TValue> GetDictionaryOrThrow()
+    {
+        ConcurrentDictionary<TKey, TValue>? dict = _dictionary;
+
+        if (dict is null || _disposed.Value)
+            throw new ObjectDisposedException(nameof(SingletonKeyDictionary<TKey, TValue>));
+
+        return dict;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
