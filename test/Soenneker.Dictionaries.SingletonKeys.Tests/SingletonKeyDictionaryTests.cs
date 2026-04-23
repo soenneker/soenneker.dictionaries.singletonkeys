@@ -10,7 +10,7 @@ public sealed class SingletonKeyDictionaryTests
     [Test]
     public async Task Keyed_initializes_once()
     {
-        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        CancellationToken cancellationToken = CancellationToken.None;
         var calls = 0;
 
         var dict = new SingletonKeyDictionary<int, string>(key =>
@@ -30,7 +30,7 @@ public sealed class SingletonKeyDictionaryTests
     [Test]
     public async Task T1_argFactory_only_runs_when_missing()
     {
-        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        CancellationToken cancellationToken = CancellationToken.None;
         var argFactoryCalls = 0;
 
         var dict = new SingletonKeyDictionary<string, string, int>((key, arg) =>
@@ -56,7 +56,7 @@ public sealed class SingletonKeyDictionaryTests
     [Test]
     public async Task T1_TryGet_and_GetAll_work()
     {
-        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        CancellationToken cancellationToken = CancellationToken.None;
         var dict = new SingletonKeyDictionary<string, string, int>((key, arg) =>
             new ValueTask<string>($"{key}-{arg}"));
 
@@ -75,7 +75,7 @@ public sealed class SingletonKeyDictionaryTests
     [Test]
     public async Task T1_clear_disposes_values()
     {
-        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        CancellationToken cancellationToken = CancellationToken.None;
         var disposed = 0;
 
         var dict = new SingletonKeyDictionary<string, DisposableValue, int>((key, arg) =>
@@ -93,7 +93,7 @@ public sealed class SingletonKeyDictionaryTests
     [Test]
     public async Task T1T2_tuple_argFactory_only_runs_when_missing()
     {
-        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        CancellationToken cancellationToken = CancellationToken.None;
         var argFactoryCalls = 0;
 
         var dict = new SingletonKeyDictionary<string, string, int, int>((key, a1, a2) =>
