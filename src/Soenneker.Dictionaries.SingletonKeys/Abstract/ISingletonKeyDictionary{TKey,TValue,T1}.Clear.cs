@@ -4,6 +4,12 @@ using System.Threading.Tasks;
 
 namespace Soenneker.Dictionaries.SingletonKeys.Abstract;
 
+/// <summary>
+/// Defines the singleton key dictionary contract.
+/// </summary>
+/// <typeparam name="TKey">The TKey type.</typeparam>
+/// <typeparam name="TValue">The TValue type.</typeparam>
+/// <typeparam name="T1">The T1 type.</typeparam>
 public partial interface ISingletonKeyDictionary<TKey, TValue, T1>
     where TKey : notnull
 {
