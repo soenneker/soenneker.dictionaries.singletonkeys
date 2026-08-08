@@ -22,7 +22,7 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1> where TKey : notnu
     {
         ThrowIfDisposed();
 
-        using (await _lock.Lock(cancellationToken)
+        using (await _locks.LockAll(cancellationToken)
                           .NoSync())
         {
             ThrowIfDisposed();
@@ -40,7 +40,7 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1> where TKey : notnu
     {
         ThrowIfDisposed();
 
-        using (await _lock.Lock(cancellationToken)
+        using (await _locks.LockAll(cancellationToken)
                           .NoSync())
         {
             ThrowIfDisposed();
@@ -58,7 +58,7 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1> where TKey : notnu
     {
         ThrowIfDisposed();
 
-        using (await _lock.Lock(cancellationToken)
+        using (await _locks.LockAll(cancellationToken)
                           .NoSync())
         {
             ThrowIfDisposed();
@@ -75,7 +75,7 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1> where TKey : notnu
     {
         ThrowIfDisposed();
 
-        using (_lock.LockSync())
+        using (_locks.LockAllSync())
         {
             ThrowIfDisposed();
 
@@ -91,7 +91,7 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1> where TKey : notnu
     {
         ThrowIfDisposed();
 
-        using (_lock.LockSync())
+        using (_locks.LockAllSync())
         {
             ThrowIfDisposed();
 
@@ -107,7 +107,7 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1> where TKey : notnu
     {
         ThrowIfDisposed();
 
-        using (_lock.LockSync())
+        using (_locks.LockAllSync())
         {
             ThrowIfDisposed();
 

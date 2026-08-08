@@ -8,6 +8,32 @@ namespace Soenneker.Dictionaries.SingletonKeys.Tests;
 public sealed class SingletonKeyDictionaryTests
 {
     [Test]
+    public async Task Different_keys_initialize_concurrently()
+    {
+        var started = 0;
+        var bothStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var dict = new SingletonKeyDictionary<int, string>(async key =>
+        {
+            if (Interlocked.Increment(ref started) == 2)
+                bothStarted.TrySetResult();
+
+            await release.Task.ConfigureAwait(false);
+            return key.ToString();
+        });
+
+        ValueTask<string> first = dict.Get(1);
+        ValueTask<string> second = dict.Get(2);
+
+        await bothStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        release.SetResult();
+
+        (await first).Should().Be("1");
+        (await second).Should().Be("2");
+    }
+
+    [Test]
     public async Task Keyed_initializes_once()
     {
         CancellationToken cancellationToken = CancellationToken.None;

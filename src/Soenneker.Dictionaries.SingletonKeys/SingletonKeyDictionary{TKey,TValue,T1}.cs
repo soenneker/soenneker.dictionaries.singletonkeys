@@ -15,7 +15,7 @@ namespace Soenneker.Dictionaries.SingletonKeys;
 public partial class SingletonKeyDictionary<TKey, TValue, T1> : ISingletonKeyDictionary<TKey, TValue, T1> where TKey : notnull
 {
     private ConcurrentDictionary<TKey, TValue>? _dictionary;
-    private readonly AsyncLock _lock;
+    private readonly StripedAsyncLocks<TKey> _locks;
 
     private Func<TKey, T1, CancellationToken, ValueTask<TValue>>? _asyncKeyTokenFunc;
     private Func<TKey, T1, CancellationToken, TValue>? _keyTokenFunc;
@@ -31,7 +31,7 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1> : ISingletonKeyDic
 
     public SingletonKeyDictionary()
     {
-        _lock = new AsyncLock();
+        _locks = new StripedAsyncLocks<TKey>();
         _dictionary = new ConcurrentDictionary<TKey, TValue>();
     }
 
@@ -93,7 +93,7 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1> : ISingletonKeyDic
         if (dict.TryGetValue(key, out TValue? instance))
             return instance;
 
-        using (await _lock.Lock(cancellationToken)
+        using (await _locks.For(key).Lock(cancellationToken)
                           .NoSync())
         {
             dict = GetDictionaryOrThrow();
@@ -132,7 +132,7 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1> : ISingletonKeyDic
         if (dict.TryGetValue(key, out TValue? instance))
             return instance;
 
-        using (_lock.LockSync(cancellationToken))
+        using (_locks.For(key).LockSync(cancellationToken))
         {
             dict = GetDictionaryOrThrow();
 
@@ -194,7 +194,7 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1> : ISingletonKeyDic
         if (dict.TryGetValue(key, out TValue? instance))
             return instance;
 
-        using (await _lock.Lock(cancellationToken)
+        using (await _locks.For(key).Lock(cancellationToken)
                           .NoSync())
         {
             dict = GetDictionaryOrThrow();
@@ -236,7 +236,7 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1> : ISingletonKeyDic
         if (dict.TryGetValue(key, out TValue? instance))
             return instance;
 
-        using (_lock.LockSync(cancellationToken))
+        using (_locks.For(key).LockSync(cancellationToken))
         {
             dict = GetDictionaryOrThrow();
 
@@ -265,7 +265,7 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1> : ISingletonKeyDic
         if (dict.TryGetValue(key, out TValue? instance))
             return instance;
 
-        using (await _lock.Lock(cancellationToken)
+        using (await _locks.For(key).Lock(cancellationToken)
                           .NoSync())
         {
             dict = GetDictionaryOrThrow();
@@ -295,7 +295,7 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1> : ISingletonKeyDic
         if (dict.TryGetValue(key, out TValue? instance))
             return instance;
 
-        using (_lock.LockSync(cancellationToken))
+        using (_locks.For(key).LockSync(cancellationToken))
         {
             dict = GetDictionaryOrThrow();
 
@@ -526,7 +526,7 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1> : ISingletonKeyDic
             return true;
         }
 
-        using (await _lock.Lock(cancellationToken)
+        using (await _locks.For(key).Lock(cancellationToken)
                           .NoSync())
         {
             dict = GetDictionaryOrThrow();
@@ -557,7 +557,7 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1> : ISingletonKeyDic
             return true;
         }
 
-        using (_lock.LockSync(cancellationToken))
+        using (_locks.For(key).LockSync(cancellationToken))
         {
             dict = GetDictionaryOrThrow();
 

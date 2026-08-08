@@ -23,7 +23,7 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1, T2> where TKey : n
     {
         ThrowIfDisposed();
 
-        using (await _lock.Lock(cancellationToken)
+        using (await _locks.LockAll(cancellationToken)
                           .NoSync())
         {
             ThrowIfDisposed();
@@ -41,7 +41,7 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1, T2> where TKey : n
     {
         ThrowIfDisposed();
 
-        using (await _lock.Lock(cancellationToken)
+        using (await _locks.LockAll(cancellationToken)
                           .NoSync())
         {
             ThrowIfDisposed();
@@ -59,7 +59,7 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1, T2> where TKey : n
     {
         ThrowIfDisposed();
 
-        using (await _lock.Lock(cancellationToken)
+        using (await _locks.LockAll(cancellationToken)
                           .NoSync())
         {
             ThrowIfDisposed();
@@ -76,7 +76,7 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1, T2> where TKey : n
     {
         ThrowIfDisposed();
 
-        using (_lock.LockSync())
+        using (_locks.LockAllSync())
         {
             ThrowIfDisposed();
 
@@ -92,7 +92,7 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1, T2> where TKey : n
     {
         ThrowIfDisposed();
 
-        using (_lock.LockSync())
+        using (_locks.LockAllSync())
         {
             ThrowIfDisposed();
 
@@ -108,7 +108,7 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1, T2> where TKey : n
     {
         ThrowIfDisposed();
 
-        using (_lock.LockSync())
+        using (_locks.LockAllSync())
         {
             ThrowIfDisposed();
 

@@ -20,7 +20,7 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1, T2> where TKey : n
     /// </summary>
     public void ClearSync()
     {
-        using (_lock.LockSync())
+        using (_locks.LockAllSync())
         {
             ConcurrentDictionary<TKey, TValue> dict = GetDictionaryOrThrow();
 
@@ -42,7 +42,7 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1, T2> where TKey : n
     /// <returns>A task that represents the asynchronous operation.</returns>
     public async ValueTask Clear(CancellationToken cancellationToken = default)
     {
-        using (await _lock.Lock(cancellationToken)
+        using (await _locks.LockAll(cancellationToken)
                           .NoSync())
         {
             ConcurrentDictionary<TKey, TValue> dict = GetDictionaryOrThrow();
