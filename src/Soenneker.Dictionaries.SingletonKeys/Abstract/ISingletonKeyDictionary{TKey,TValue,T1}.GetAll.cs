@@ -6,6 +6,9 @@ using System.Threading.Tasks;
 
 namespace Soenneker.Dictionaries.SingletonKeys.Abstract;
 
+/// <summary>
+/// Defines enumeration operations for singleton values addressed by composite keys.
+/// </summary>
 public partial interface ISingletonKeyDictionary<TKey, TValue, T1>
     where TKey : notnull
 {

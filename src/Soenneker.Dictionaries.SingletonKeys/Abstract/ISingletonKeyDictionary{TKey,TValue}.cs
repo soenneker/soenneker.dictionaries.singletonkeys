@@ -5,6 +5,9 @@ using System.Threading.Tasks;
 
 namespace Soenneker.Dictionaries.SingletonKeys.Abstract;
 
+/// <summary>
+/// Defines storage and retrieval of one value per composite key.
+/// </summary>
 public partial interface ISingletonKeyDictionary<TKey, TValue> : IDisposable, IAsyncDisposable
     where TKey : notnull
 {

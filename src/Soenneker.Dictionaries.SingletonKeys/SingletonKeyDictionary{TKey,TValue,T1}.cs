@@ -11,7 +11,7 @@ using Soenneker.Extensions.ValueTask;
 
 namespace Soenneker.Dictionaries.SingletonKeys;
 
-/// <inheritdoc cref="ISingletonKeyDictionary{TKey,TValue,T1}"/>
+/// <inheritdoc cref="ISingletonKeyDictionary{TKey, TValue, T1}"/>
 public partial class SingletonKeyDictionary<TKey, TValue, T1> : ISingletonKeyDictionary<TKey, TValue, T1> where TKey : notnull
 {
     private ConcurrentDictionary<TKey, TValue>? _dictionary;
