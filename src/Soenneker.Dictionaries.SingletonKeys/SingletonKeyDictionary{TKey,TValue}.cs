@@ -11,11 +11,6 @@ using Soenneker.Extensions.ValueTask;
 
 namespace Soenneker.Dictionaries.SingletonKeys;
 
-/// <summary>
-/// Represents the singleton key dictionary.
-/// </summary>
-/// <typeparam name="TKey">The TKey type.</typeparam>
-/// <typeparam name="TValue">The TValue type.</typeparam>
 public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDictionary<TKey, TValue> where TKey : notnull
 {
     private ConcurrentDictionary<TKey, TValue>? _dictionary;
@@ -102,9 +97,9 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
     /// <summary>
     /// Gets core.
     /// </summary>
-    /// <param name="key">The key.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>A task containing the result of the operation.</returns>
+    /// <param name="key">Key used to locate the target entry.</param>
+    /// <param name="cancellationToken">Token used to cancel the operation.</param>
+    /// <returns>A task whose result is the value returned by get Core.</returns>
     public async ValueTask<TValue> GetCore(TKey key, CancellationToken cancellationToken)
     {
         ConcurrentDictionary<TKey, TValue> dict = GetDictionaryOrThrow();
@@ -339,9 +334,9 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
     /// <summary>
     /// Sets initialization.
     /// </summary>
-    /// <typeparam name="TState">The TState type.</typeparam>
-    /// <param name="state">The state.</param>
-    /// <param name="factory">The factory.</param>
+    /// <typeparam name="TState">Type of state passed to the callback.</typeparam>
+    /// <param name="state">State value used by the variant.</param>
+    /// <param name="factory">Factory used to create a value when one is needed.</param>
     public void SetInitialization<TState>(TState state, Func<TState, TKey, CancellationToken, ValueTask<TValue>> factory) where TState : notnull
     {
         ArgumentNullException.ThrowIfNull(state);

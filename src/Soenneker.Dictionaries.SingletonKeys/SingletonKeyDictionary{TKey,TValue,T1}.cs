@@ -183,10 +183,10 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1> : ISingletonKeyDic
     /// <summary>
     /// Gets core.
     /// </summary>
-    /// <param name="key">The key.</param>
-    /// <param name="argFactory">The arg factory.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>A task containing the result of the operation.</returns>
+    /// <param name="key">Key used to locate the target entry.</param>
+    /// <param name="argFactory">Callback used by get core.</param>
+    /// <param name="cancellationToken">Token used to cancel the operation.</param>
+    /// <returns>A task whose result is the value returned by get Core.</returns>
     public async ValueTask<TValue> GetCore(TKey key, Func<T1> argFactory, CancellationToken cancellationToken)
     {
         ConcurrentDictionary<TKey, TValue> dict = GetDictionaryOrThrow();
@@ -225,10 +225,10 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1> : ISingletonKeyDic
     /// <summary>
     /// Gets core sync.
     /// </summary>
-    /// <param name="key">The key.</param>
-    /// <param name="argFactory">The arg factory.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The result of the operation.</returns>
+    /// <param name="key">Key used to locate the target entry.</param>
+    /// <param name="argFactory">Callback used by get core sync.</param>
+    /// <param name="cancellationToken">Token used to cancel the operation.</param>
+    /// <returns>The requested value.</returns>
     public TValue GetCoreSync(TKey key, Func<T1> argFactory, CancellationToken cancellationToken)
     {
         ConcurrentDictionary<TKey, TValue> dict = GetDictionaryOrThrow();
@@ -254,10 +254,10 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1> : ISingletonKeyDic
     /// <summary>
     /// Gets core.
     /// </summary>
-    /// <param name="key">The key.</param>
-    /// <param name="arg">The arg.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>A task containing the result of the operation.</returns>
+    /// <param name="key">Key used to locate the target entry.</param>
+    /// <param name="arg">Arg for the get core operation.</param>
+    /// <param name="cancellationToken">Token used to cancel the operation.</param>
+    /// <returns>A task whose result is the value returned by get Core.</returns>
     public async ValueTask<TValue> GetCore(TKey key, T1 arg, CancellationToken cancellationToken)
     {
         ConcurrentDictionary<TKey, TValue> dict = GetDictionaryOrThrow();

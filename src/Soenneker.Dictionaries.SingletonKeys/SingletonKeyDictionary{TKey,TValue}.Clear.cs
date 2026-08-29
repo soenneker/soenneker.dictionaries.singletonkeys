@@ -6,11 +6,6 @@ using Soenneker.Extensions.ValueTask;
 
 namespace Soenneker.Dictionaries.SingletonKeys;
 
-/// <summary>
-/// Represents the singleton key dictionary.
-/// </summary>
-/// <typeparam name="TKey">The TKey type.</typeparam>
-/// <typeparam name="TValue">The TValue type.</typeparam>
 public partial class SingletonKeyDictionary<TKey, TValue> where TKey : notnull
 {
     /// <summary>

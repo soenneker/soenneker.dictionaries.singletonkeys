@@ -5,19 +5,6 @@ using System.Threading.Tasks;
 
 namespace Soenneker.Dictionaries.SingletonKeys.Abstract;
 
-/// <summary>
-/// A keyed singleton cache that creates at most one logical value per <typeparamref name="TKey"/> and reuses it for subsequent lookups.
-/// </summary>
-/// <typeparam name="TKey">The key type. Must be non-null.</typeparam>
-/// <typeparam name="TValue">The cached value type.</typeparam>
-/// <remarks>
-/// Value creation is coordinated with double-check locking.
-/// Removal APIs intentionally have different semantics:
-/// <see cref="TryRemove(TKey, out TValue?)"/> does not dispose,
-/// <see cref="TryRemoveAndDispose(TKey)"/> is the fast no-lock remove path,
-/// <see cref="Remove(TKey, CancellationToken)"/> is an alias for that fast path,
-/// and <see cref="Evict(TKey, CancellationToken)"/> is the stronger option for races with in-flight creation.
-/// </remarks>
 public partial interface ISingletonKeyDictionary<TKey, TValue> : IDisposable, IAsyncDisposable
     where TKey : notnull
 {
@@ -230,5 +217,6 @@ public partial interface ISingletonKeyDictionary<TKey, TValue> : IDisposable, IA
     /// <summary>
     /// Asynchronously disposes the dictionary and disposes all cached values where applicable.
     /// </summary>
+    /// <returns>A task that completes when the dispose async operation is complete.</returns>
     new ValueTask DisposeAsync();
 }

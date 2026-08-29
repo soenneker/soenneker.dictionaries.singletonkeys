@@ -4,11 +4,6 @@ using System.Threading.Tasks;
 
 namespace Soenneker.Dictionaries.SingletonKeys.Abstract;
 
-/// <summary>
-/// Defines the singleton key dictionary contract.
-/// </summary>
-/// <typeparam name="TKey">The TKey type.</typeparam>
-/// <typeparam name="TValue">The TValue type.</typeparam>
 public partial interface ISingletonKeyDictionary<TKey, TValue>
     where TKey : notnull
 {
@@ -26,5 +21,4 @@ public partial interface ISingletonKeyDictionary<TKey, TValue>
     /// <exception cref="ObjectDisposedException">Thrown if the dictionary has been disposed.</exception>
     ValueTask Clear(CancellationToken cancellationToken = default);
 }
-
 
