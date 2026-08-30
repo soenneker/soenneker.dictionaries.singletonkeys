@@ -488,15 +488,18 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
         if (!_disposed.TrySetTrue())
             return;
 
-        ConcurrentDictionary<TKey, TValue>? dict = _dictionary;
-        _dictionary = null;
-
-        if (dict is null || dict.IsEmpty)
-            return;
-
-        foreach (TValue value in dict.Values)
+        using (_locks.LockAllSync())
         {
-            DisposeRemovedInstanceSync(value);
+            ConcurrentDictionary<TKey, TValue>? dict = _dictionary;
+            _dictionary = null;
+
+            if (dict is null || dict.IsEmpty)
+                return;
+
+            foreach (TValue value in dict.Values)
+            {
+                DisposeRemovedInstanceSync(value);
+            }
         }
     }
 
@@ -509,16 +512,19 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
         if (!_disposed.TrySetTrue())
             return;
 
-        ConcurrentDictionary<TKey, TValue>? dict = _dictionary;
-        _dictionary = null;
-
-        if (dict is null || dict.IsEmpty)
-            return;
-
-        foreach (TValue value in dict.Values)
+        using (await _locks.LockAll().NoSync())
         {
-            await DisposeRemovedInstance(value)
-                .NoSync();
+            ConcurrentDictionary<TKey, TValue>? dict = _dictionary;
+            _dictionary = null;
+
+            if (dict is null || dict.IsEmpty)
+                return;
+
+            foreach (TValue value in dict.Values)
+            {
+                await DisposeRemovedInstance(value)
+                    .NoSync();
+            }
         }
     }
 

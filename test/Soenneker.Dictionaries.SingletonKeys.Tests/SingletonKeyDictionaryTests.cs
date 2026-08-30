@@ -142,6 +142,35 @@ public sealed class SingletonKeyDictionaryTests
         argFactoryCalls.Should().Be(1);
     }
 
+    [Test]
+    public async Task DisposeAsync_waits_for_and_disposes_inflight_creation()
+    {
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var disposed = 0;
+
+        var dict = new SingletonKeyDictionary<string, DisposableValue>(async _ =>
+        {
+            started.SetResult();
+            await release.Task.ConfigureAwait(false);
+            return new DisposableValue(() => Interlocked.Increment(ref disposed));
+        });
+
+        ValueTask<DisposableValue> get = dict.Get("inflight");
+        await started.Task;
+
+        Task disposing = dict.DisposeAsync().AsTask();
+        disposing.IsCompleted.Should().BeFalse();
+
+        release.SetResult();
+        _ = await get;
+        await disposing;
+
+        disposed.Should().Be(1);
+        Func<Task> action = async () => _ = await dict.Get("after-dispose");
+        await action.Should().ThrowAsync<ObjectDisposedException>();
+    }
+
     private sealed class DisposableValue : IDisposable
     {
         private readonly Action _onDispose;

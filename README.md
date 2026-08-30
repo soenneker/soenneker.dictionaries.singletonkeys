@@ -5,67 +5,71 @@
 
 # Soenneker.Dictionaries.SingletonKeys
 
-Defines enumeration operations for singleton values addressed by composite keys.
+Creates, caches, and owns one value per key, with asynchronous and synchronous factories plus coordinated eviction and disposal.
 
-## Install
+## Installation
 
 ```bash
 dotnet add package Soenneker.Dictionaries.SingletonKeys
 ```
 
-## Quick start
+## Basic usage
 
 ```csharp
-using Soenneker.Dictionaries.SingletonKeys.Abstract;
+using Soenneker.Dictionaries.SingletonKeys;
 
-ISingletonKeyDictionary<TKey, TValue, T1, T2> singletonKeyDictionary = /* resolve from DI */;
-singletonKeyDictionary.ClearSync();
+await using var clients = new SingletonKeyDictionary<string, ApiClient>(
+    async (tenantId, cancellationToken) =>
+        await ApiClient.Connect(tenantId, cancellationToken));
+
+ApiClient client = await clients.Get("tenant-42", cancellationToken);
 ```
 
-Clears all cached entries and disposes cached values where applicable (sync).
+The first caller for a missing key runs its factory while concurrent callers for that key wait. A successful value is cached and returned until removal, clear, or disposal. Factories for different lock stripes can run concurrently; keys that hash to the same stripe temporarily serialize.
 
-## What you get
+If a factory faults or is canceled, no value is cached and a later call can retry. The cancellation token of the creating call is passed to its factory; waiting callers can cancel while waiting for the key lock.
 
-- `ISingletonKeyDictionary<TKey, TValue, T1, T2>` — Defines enumeration operations for singleton values addressed by composite keys.
-- `ISingletonKeyDictionary<TKey, TValue, T1>` — Defines enumeration operations for singleton values addressed by composite keys.
-- `ISingletonKeyDictionary<TKey, TValue>` — Defines enumeration operations for singleton values addressed by composite keys.
+## Initialization arguments
 
-## API at a glance
+Use the `T1` or `T1, T2` variants when creation needs arguments supplied by `Get`:
 
-| API | What it does | Result / important behavior |
-| --- | --- | --- |
-| `ISingletonKeyDictionary<TKey, TValue, T1, T2>.ClearSync()` | Clears all cached entries and disposes cached values where applicable (sync). | Returns no value; the requested change is complete when the method returns. |
-| `ISingletonKeyDictionary<TKey, TValue, T1, T2>.Clear(cancellationToken)` | Clears all cached entries and disposes cached values where applicable (async). | A task that completes when clearing and disposal have finished. |
-| `ISingletonKeyDictionary<TKey, TValue, T1, T2>.Get(key, arg1, arg2, cancellationToken)` | Retrieves the singleton value for `key`, creating and caching it if missing, using `arg1` and `arg2` as initialization arguments. If another concurrent creation wins the add race, the newly created instance is disposed and the existing cached value is returned. | A task that completes with the cached (or newly created) value. |
-| `ISingletonKeyDictionary<TKey, TValue, T1, T2>.Get(key, argFactory, cancellationToken)` | Retrieves the singleton value for `key`, creating and caching it if missing. The `argFactory` is invoked only if the value needs to be created. If another concurrent creation wins the add race, the newly created instance is disposed and the existing cached value is returned. | A task that completes with the cached (or newly created) value. |
-| `ISingletonKeyDictionary<TKey, TValue, T1, T2>.TryGet(key, value)` | Attempts to retrieve a cached value for `key` without initializing it if missing. | `true` if a value exists for `key`; otherwise, `false`. |
-| `ISingletonKeyDictionary<TKey, TValue, T1, T2>.GetSync(key, arg1, arg2, cancellationToken)` | Synchronously retrieves the singleton value for `key`, creating and caching it if missing, using `arg1` and `arg2` as initialization arguments. | The cached (or newly created) value. |
-| `ISingletonKeyDictionary<TKey, TValue, T1, T2>.GetSync(key, argFactory, cancellationToken)` | Synchronously retrieves the singleton value for `key`, creating and caching it if missing. The `argFactory` is invoked only if the value needs to be created. | The cached (or newly created) value. |
-| `ISingletonKeyDictionary<TKey, TValue, T1, T2>.Get(key, state, argFactory, cancellationToken)` | Retrieves the singleton value for `key`, creating and caching it if missing, using a stateful `argFactory`. This overload is designed to enable static lambdas and avoid closure allocations. If another concurrent creation wins the add race, the newly created instance is disposed and the existing cached value is returned. | A task that completes with the cached (or newly created) value. |
-| `ISingletonKeyDictionary<TKey, TValue, T1, T2>.GetSync(key, state, argFactory, cancellationToken)` | Synchronously retrieves the singleton value for `key`, creating and caching it if missing, using a stateful `argFactory`. This overload is designed to enable static lambdas and avoid closure allocations. | The cached (or newly created) value. |
-| `ISingletonKeyDictionary<TKey, TValue, T1, T2>.SetInitialization(func)` | Sets the async initialization function used to create values for a key, given initialization arguments. | Returns no value; the requested change is complete when the method returns. |
-| `ISingletonKeyDictionary<TKey, TValue, T1, T2>.TryRemove(key, value)` | Attempts to remove the current value for `key` without disposing it. This is a direct pass-through to the underlying dictionary and does not coordinate with in-flight creation. | `true` if a value was removed; otherwise, `false`. |
-| `ISingletonKeyDictionary<TKey, TValue, T1, T2>.TryRemoveAndDispose(key)` | Attempts to remove the current value for `key` and dispose it if applicable. This is the fast no-lock removal path and only affects the value currently stored at the time of removal. | `true` if a value was removed and disposed; otherwise, `false`. |
-| `ISingletonKeyDictionary<TKey, TValue, T1, T2>.TryRemoveAndDisposeSync(key)` | Synchronously attempts to remove the current value for `key` and dispose it if applicable. This is the fast no-lock removal path and only affects the value currently stored at the time of removal. | `true` if a value was removed and disposed; otherwise, `false`. |
-| `ISingletonKeyDictionary<TKey, TValue, T1, T2>.Remove(key, cancellationToken)` | Removes and disposes the current value associated with `key`. This is the same fast no-lock behavior as `TryRemoveAndDispose(TKey)` and does not retry under the creation lock. | `true` if the current value was removed and disposed; otherwise, `false`. |
-| `ISingletonKeyDictionary<TKey, TValue, T1, T2>.RemoveSync(key, cancellationToken)` | Synchronously removes and disposes the current value associated with `key`. This is the same fast no-lock behavior as `TryRemoveAndDisposeSync(TKey)` and does not retry under the creation lock. | `true` if the current value was removed and disposed; otherwise, `false`. |
-| `ISingletonKeyDictionary<TKey, TValue, T1, T2>.Evict(key, cancellationToken)` | Strongly removes the value associated with `key`, handling races with in-flight creation, and disposes it if applicable. Prefer this method when removal must account for a value being added between a fast remove attempt and lock acquisition. | `true` if a value was removed; otherwise, `false`. |
-| `ISingletonKeyDictionary<TKey, TValue, T1, T2>.EvictSync(key, cancellationToken)` | Synchronously evicts the value associated with `key`, handling races with in-flight creation, and disposes it if applicable. Prefer this method when removal must account for a value being added between a fast remove attempt and lock acquisition. | `true` if a value was removed; otherwise, `false`. |
-| `ISingletonKeyDictionary<TKey, TValue, T1, T2>.Dispose()` | Disposes the dictionary and disposes all cached values where applicable. | Returns no value; the requested change is complete when the method returns. |
+```csharp
+var clients = new SingletonKeyDictionary<string, ApiClient, Uri, string>(
+    (tenantId, endpoint, apiKey, cancellationToken) =>
+        ApiClient.Connect(endpoint, apiKey, cancellationToken));
 
-## Important behavior
+ApiClient client = await clients.Get(
+    "tenant-42",
+    endpoint,
+    apiKey,
+    cancellationToken);
+```
 
-- `ISingletonKeyDictionary<TKey, TValue, T1, T2>.ClearSync()`: Thrown if the dictionary has been disposed.
-- `ISingletonKeyDictionary<TKey, TValue, T1, T2>.Clear(cancellationToken)`: Thrown if the dictionary has been disposed.
-- `ISingletonKeyDictionary<TKey, TValue, T1, T2>.Get(key, arg1, arg2, cancellationToken)`: Thrown if the dictionary has been disposed.
-- `ISingletonKeyDictionary<TKey, TValue, T1, T2>.Get(key, argFactory, cancellationToken)`: Thrown if the dictionary has been disposed.
-- `ISingletonKeyDictionary<TKey, TValue, T1, T2>.TryGet(key, value)`: Thrown if the dictionary has been disposed.
-- `ISingletonKeyDictionary<TKey, TValue, T1, T2>.GetSync(key, arg1, arg2, cancellationToken)`: Prefer `Get(TKey, T1, T2, CancellationToken)` when possible. If an async initialization delegate is configured, this call will block the calling thread.
-- `ISingletonKeyDictionary<TKey, TValue, T1, T2>.GetSync(key, arg1, arg2, cancellationToken)`: Thrown if the dictionary has been disposed.
-- `ISingletonKeyDictionary<TKey, TValue, T1, T2>.GetSync(key, argFactory, cancellationToken)`: Prefer the async `Get` overload when possible. If an async initialization delegate is configured, this call will block the calling thread.
+Arguments are creation-only. Later calls for the same key receive the cached value even if they pass different arguments. The `Func<T1>` and `Func<(T1, T2)>` overloads defer argument construction until the key is known to be missing.
 
-## Practical notes
+Factories can also be assigned once with `SetInitialization`, or with `Initialize(state, static ...)` to avoid capturing a closure. Configure initialization before concurrent use; changing the factory after one is set is rejected.
 
-- Cancellation stops pending work; it does not undo work that has already completed.
-- Calls that return a cached or singleton value reuse the same instance until the owning service is disposed.
-- Dispose instances you own when their scope ends so held resources can be released.
+## Removal choices
+
+```csharp
+// Fast removal of an already cached value, including disposal:
+bool removed = await clients.Remove("tenant-42", cancellationToken);
+
+// Strong eviction that also waits behind an in-flight creation for this key:
+bool evicted = await clients.Evict("tenant-42", cancellationToken);
+```
+
+- `Remove` is the same fast path as `TryRemoveAndDispose`. It can return `false` while a factory is still creating the key.
+- `Evict` coordinates with creation and is the appropriate choice when the key must be absent after the call.
+- `TryRemove(key, out value)` does not dispose the value; ownership transfers to the caller.
+- `Clear` coordinates across all stripes, removes every cached value, and disposes them.
+
+Synchronous counterparts are available, but they block when the configured factory or value disposal is asynchronous. Prefer the async APIs in request and worker code.
+
+## Snapshots and ownership
+
+`TryGet` never initializes. `GetAll`, `GetKeys`, and `GetValues` acquire all stripes and return new collections representing a coordinated snapshot.
+
+Cached values are dictionary-owned. Removal-with-disposal, clear, and dictionary disposal prefer `IAsyncDisposable` over `IDisposable`. Do not cache the same disposable instance under multiple keys unless repeated disposal is safe, and do not use a value after its key is evicted.
+
+Disposal is terminal and waits for factories already running under a key stripe before disposing their results. Do not call dictionary disposal from inside one of its own factories, because the factory holds a stripe that disposal must acquire.
