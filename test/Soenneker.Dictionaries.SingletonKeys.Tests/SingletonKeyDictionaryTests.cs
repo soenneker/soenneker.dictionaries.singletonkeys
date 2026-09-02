@@ -8,7 +8,7 @@ namespace Soenneker.Dictionaries.SingletonKeys.Tests;
 public sealed class SingletonKeyDictionaryTests
 {
     [Test]
-    public async Task Different_keys_initialize_concurrently()
+    public async Task Different_keys_initialize_concurrently(CancellationToken cancellationToken)
     {
         var started = 0;
         var bothStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -23,8 +23,8 @@ public sealed class SingletonKeyDictionaryTests
             return key.ToString();
         });
 
-        ValueTask<string> first = dict.Get(1);
-        ValueTask<string> second = dict.Get(2);
+        ValueTask<string> first = dict.Get(1, cancellationToken: cancellationToken);
+        ValueTask<string> second = dict.Get(2, cancellationToken: cancellationToken);
 
         await bothStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
         release.SetResult();
@@ -34,9 +34,8 @@ public sealed class SingletonKeyDictionaryTests
     }
 
     [Test]
-    public async Task Keyed_initializes_once()
+    public async Task Keyed_initializes_once(CancellationToken cancellationToken)
     {
-        CancellationToken cancellationToken = CancellationToken.None;
         var calls = 0;
 
         var dict = new SingletonKeyDictionary<int, string>(key =>
@@ -54,9 +53,8 @@ public sealed class SingletonKeyDictionaryTests
     }
 
     [Test]
-    public async Task T1_argFactory_only_runs_when_missing()
+    public async Task T1_argFactory_only_runs_when_missing(CancellationToken cancellationToken)
     {
-        CancellationToken cancellationToken = CancellationToken.None;
         var argFactoryCalls = 0;
 
         var dict = new SingletonKeyDictionary<string, string, int>((key, arg) =>
@@ -80,9 +78,8 @@ public sealed class SingletonKeyDictionaryTests
     }
 
     [Test]
-    public async Task T1_TryGet_and_GetAll_work()
+    public async Task T1_TryGet_and_GetAll_work(CancellationToken cancellationToken)
     {
-        CancellationToken cancellationToken = CancellationToken.None;
         var dict = new SingletonKeyDictionary<string, string, int>((key, arg) =>
             new ValueTask<string>($"{key}-{arg}"));
 
@@ -99,9 +96,8 @@ public sealed class SingletonKeyDictionaryTests
     }
 
     [Test]
-    public async Task T1_clear_disposes_values()
+    public async Task T1_clear_disposes_values(CancellationToken cancellationToken)
     {
-        CancellationToken cancellationToken = CancellationToken.None;
         var disposed = 0;
 
         var dict = new SingletonKeyDictionary<string, DisposableValue, int>((key, arg) =>
@@ -117,9 +113,8 @@ public sealed class SingletonKeyDictionaryTests
     }
 
     [Test]
-    public async Task T1T2_tuple_argFactory_only_runs_when_missing()
+    public async Task T1T2_tuple_argFactory_only_runs_when_missing(CancellationToken cancellationToken)
     {
-        CancellationToken cancellationToken = CancellationToken.None;
         var argFactoryCalls = 0;
 
         var dict = new SingletonKeyDictionary<string, string, int, int>((key, a1, a2) =>
@@ -143,7 +138,7 @@ public sealed class SingletonKeyDictionaryTests
     }
 
     [Test]
-    public async Task DisposeAsync_waits_for_and_disposes_inflight_creation()
+    public async Task DisposeAsync_waits_for_and_disposes_inflight_creation(CancellationToken cancellationToken)
     {
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -156,7 +151,7 @@ public sealed class SingletonKeyDictionaryTests
             return new DisposableValue(() => Interlocked.Increment(ref disposed));
         });
 
-        ValueTask<DisposableValue> get = dict.Get("inflight");
+        ValueTask<DisposableValue> get = dict.Get("inflight", cancellationToken: cancellationToken);
         await started.Task;
 
         Task disposing = dict.DisposeAsync().AsTask();
@@ -167,7 +162,7 @@ public sealed class SingletonKeyDictionaryTests
         await disposing;
 
         disposed.Should().Be(1);
-        Func<Task> action = async () => _ = await dict.Get("after-dispose");
+        Func<Task> action = async () => _ = await dict.Get("after-dispose", cancellationToken: cancellationToken);
         await action.Should().ThrowAsync<ObjectDisposedException>();
     }
 
