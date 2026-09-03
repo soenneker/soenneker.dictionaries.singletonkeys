@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -29,43 +30,72 @@ public partial class SingletonKeyDictionary<TKey, TValue, T1, T2> : ISingletonKe
     private ValueAtomicBool _disposed;
     private InitializationMode? _initializationMode;
 
-    public SingletonKeyDictionary()
+    public SingletonKeyDictionary() : this(comparer: null)
     {
-        _locks = new StripedAsyncLocks<TKey>();
-        _dictionary = new ConcurrentDictionary<TKey, TValue>();
     }
 
-    public SingletonKeyDictionary(Func<TKey, T1, T2, ValueTask<TValue>> func) : this()
+    public SingletonKeyDictionary(IEqualityComparer<TKey>? comparer)
+    {
+        comparer ??= EqualityComparer<TKey>.Default;
+        _locks = new StripedAsyncLocks<TKey>(comparer);
+        _dictionary = new ConcurrentDictionary<TKey, TValue>(comparer);
+    }
+
+    public SingletonKeyDictionary(Func<TKey, T1, T2, ValueTask<TValue>> func) : this(func, comparer: null)
+    {
+    }
+
+    public SingletonKeyDictionary(Func<TKey, T1, T2, ValueTask<TValue>> func, IEqualityComparer<TKey>? comparer) : this(comparer)
     {
         _initializationMode = InitializationMode.AsyncKey;
         _asyncKeyFunc = func;
     }
 
-    public SingletonKeyDictionary(Func<TKey, T1, T2, CancellationToken, ValueTask<TValue>> func) : this()
+    public SingletonKeyDictionary(Func<TKey, T1, T2, CancellationToken, ValueTask<TValue>> func) : this(func, comparer: null)
+    {
+    }
+
+    public SingletonKeyDictionary(Func<TKey, T1, T2, CancellationToken, ValueTask<TValue>> func, IEqualityComparer<TKey>? comparer) : this(comparer)
     {
         _initializationMode = InitializationMode.AsyncKeyToken;
         _asyncKeyTokenFunc = func;
     }
 
-    public SingletonKeyDictionary(Func<T1, T2, ValueTask<TValue>> func) : this()
+    public SingletonKeyDictionary(Func<T1, T2, ValueTask<TValue>> func) : this(func, comparer: null)
+    {
+    }
+
+    public SingletonKeyDictionary(Func<T1, T2, ValueTask<TValue>> func, IEqualityComparer<TKey>? comparer) : this(comparer)
     {
         _initializationMode = InitializationMode.Async;
         _asyncFunc = func;
     }
 
-    public SingletonKeyDictionary(Func<TKey, T1, T2, TValue> func) : this()
+    public SingletonKeyDictionary(Func<TKey, T1, T2, TValue> func) : this(func, comparer: null)
+    {
+    }
+
+    public SingletonKeyDictionary(Func<TKey, T1, T2, TValue> func, IEqualityComparer<TKey>? comparer) : this(comparer)
     {
         _initializationMode = InitializationMode.SyncKey;
         _keyFunc = func;
     }
 
-    public SingletonKeyDictionary(Func<TKey, T1, T2, CancellationToken, TValue> func) : this()
+    public SingletonKeyDictionary(Func<TKey, T1, T2, CancellationToken, TValue> func) : this(func, comparer: null)
+    {
+    }
+
+    public SingletonKeyDictionary(Func<TKey, T1, T2, CancellationToken, TValue> func, IEqualityComparer<TKey>? comparer) : this(comparer)
     {
         _initializationMode = InitializationMode.SyncKeyToken;
         _keyTokenFunc = func;
     }
 
-    public SingletonKeyDictionary(Func<T1, T2, TValue> func) : this()
+    public SingletonKeyDictionary(Func<T1, T2, TValue> func) : this(func, comparer: null)
+    {
+    }
+
+    public SingletonKeyDictionary(Func<T1, T2, TValue> func, IEqualityComparer<TKey>? comparer) : this(comparer)
     {
         _initializationMode = InitializationMode.Sync;
         _func = func;

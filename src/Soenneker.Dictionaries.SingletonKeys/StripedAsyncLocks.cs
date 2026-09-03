@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Soenneker.Asyncs.Locks;
@@ -10,10 +11,16 @@ internal sealed class StripedAsyncLocks<TKey> where TKey : notnull
 {
     private const int _stripeCount = 64;
     private readonly AsyncLock[] _locks = CreateLocks();
+    private readonly IEqualityComparer<TKey> _comparer;
+
+    internal StripedAsyncLocks(IEqualityComparer<TKey>? comparer = null)
+    {
+        _comparer = comparer ?? EqualityComparer<TKey>.Default;
+    }
 
     internal AsyncLock For(TKey key)
     {
-        int hash = key.GetHashCode() & int.MaxValue;
+        int hash = _comparer.GetHashCode(key) & int.MaxValue;
         return _locks[hash & (_stripeCount - 1)];
     }
 

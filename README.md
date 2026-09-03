@@ -47,6 +47,16 @@ ApiClient client = await clients.Get(
 
 Arguments are creation-only. Later calls for the same key receive the cached value even if they pass different arguments. The `Func<T1>` and `Func<(T1, T2)>` overloads defer argument construction until the key is known to be missing.
 
+## Key comparison
+
+Pass an `IEqualityComparer<TKey>` when keys require non-default equality. The comparer is used by both the cache and its keyed initialization locks, so comparer-equal keys share one factory execution:
+
+```csharp
+var clients = new SingletonKeyDictionary<string, ApiClient>(
+    tenantId => CreateClient(tenantId),
+    StringComparer.OrdinalIgnoreCase);
+```
+
 Factories can also be assigned once with `SetInitialization`, or with `Initialize(state, static ...)` to avoid capturing a closure. Configure initialization before concurrent use; changing the factory after one is set is rejected.
 
 ## Removal choices

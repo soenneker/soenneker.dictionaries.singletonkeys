@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using AwesomeAssertions;
@@ -49,6 +50,34 @@ public sealed class SingletonKeyDictionaryTests
 
         a.Should().Be("v-1");
         b.Should().Be("v-1");
+        calls.Should().Be(1);
+    }
+
+    [Test]
+    public async Task Comparer_equal_keys_share_initialization(CancellationToken cancellationToken)
+    {
+        var calls = 0;
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var dict = new SingletonKeyDictionary<ComparerKey, string>(async key =>
+        {
+            Interlocked.Increment(ref calls);
+            started.TrySetResult();
+            await release.Task.ConfigureAwait(false);
+            return key.Value;
+        }, new EquivalentKeyComparer());
+
+        ValueTask<string> first = dict.Get(new ComparerKey("first", 0), cancellationToken);
+        await started.Task;
+
+        ValueTask<string> second = dict.Get(new ComparerKey("second", 1), cancellationToken);
+        calls.Should().Be(1);
+
+        release.SetResult();
+
+        (await first).Should().Be("first");
+        (await second).Should().Be("first");
         calls.Should().Be(1);
     }
 
@@ -179,5 +208,26 @@ public sealed class SingletonKeyDictionaryTests
         {
             _onDispose();
         }
+    }
+
+    private sealed class ComparerKey
+    {
+        public ComparerKey(string value, int hashCode)
+        {
+            Value = value;
+            HashCode = hashCode;
+        }
+
+        public string Value { get; }
+        private int HashCode { get; }
+
+        public override int GetHashCode() => HashCode;
+    }
+
+    private sealed class EquivalentKeyComparer : IEqualityComparer<ComparerKey>
+    {
+        public bool Equals(ComparerKey? x, ComparerKey? y) => x is not null && y is not null;
+
+        public int GetHashCode(ComparerKey obj) => 0;
     }
 }
