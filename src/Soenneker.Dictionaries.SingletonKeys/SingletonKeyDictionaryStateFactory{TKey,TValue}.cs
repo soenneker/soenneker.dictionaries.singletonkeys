@@ -7,6 +7,7 @@ using Soenneker.Extensions.ValueTask;
 
 namespace Soenneker.Dictionaries.SingletonKeys;
 
+/// <inheritdoc cref="ISingletonKeyDictionaryStateFactory{TKey, TValue}" />
 internal sealed class SingletonKeyDictionaryStateFactory<TKey, TValue, TState> : ISingletonKeyDictionaryStateFactory<TKey, TValue>
     where TKey : notnull where TState : notnull
 {
