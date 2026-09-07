@@ -44,9 +44,9 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Soenneker.Asyncs.Locks" Version="4.0.78" />
+        <PackageReference Include="Soenneker.Asyncs.Locks" Version="4.0.79" />
         <PackageReference Include="Soenneker.Atomics.ValueBools" Version="4.0.38" />
         <PackageReference Include="Soenneker.Enums.InitializationModes" Version="4.0.46" />
-        <PackageReference Include="Soenneker.Extensions.Enumerable" Version="4.0.658" />
+        <PackageReference Include="Soenneker.Extensions.Enumerable" Version="4.0.660" />
     </ItemGroup>
 </Project>
