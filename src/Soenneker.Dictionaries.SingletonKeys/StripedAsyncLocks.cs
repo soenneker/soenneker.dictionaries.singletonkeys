@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,7 +27,7 @@ internal sealed class StripedAsyncLocks<TKey> where TKey : notnull
 
     internal async ValueTask<AllReleaser> LockAll(CancellationToken cancellationToken = default)
     {
-        var releasers = new Releaser[_locks.Length];
+        Releaser[] releasers = ArrayPool<Releaser>.Shared.Rent(_locks.Length);
         var acquired = 0;
 
         try
@@ -45,7 +46,7 @@ internal sealed class StripedAsyncLocks<TKey> where TKey : notnull
 
     internal AllReleaser LockAllSync(CancellationToken cancellationToken = default)
     {
-        var releasers = new Releaser[_locks.Length];
+        Releaser[] releasers = ArrayPool<Releaser>.Shared.Rent(_locks.Length);
         var acquired = 0;
 
         try
@@ -72,8 +73,15 @@ internal sealed class StripedAsyncLocks<TKey> where TKey : notnull
 
     private static void DisposeReverse(Releaser[] releasers, int count)
     {
-        for (int i = count - 1; i >= 0; i--)
-            releasers[i].Dispose();
+        try
+        {
+            for (int i = count - 1; i >= 0; i--)
+                releasers[i].Dispose();
+        }
+        finally
+        {
+            ArrayPool<Releaser>.Shared.Return(releasers, clearArray: true);
+        }
     }
 
     internal sealed class AllReleaser : IDisposable
