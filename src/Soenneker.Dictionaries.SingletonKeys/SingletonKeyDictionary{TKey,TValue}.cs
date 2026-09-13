@@ -12,7 +12,6 @@ using Soenneker.Extensions.ValueTask;
 
 namespace Soenneker.Dictionaries.SingletonKeys;
 
-/// <inheritdoc cref="ISingletonKeyDictionary{TKey, TValue}"/>
 public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDictionary<TKey, TValue> where TKey : notnull
 {
     private ConcurrentDictionary<TKey, TValue>? _dictionary;
@@ -102,22 +101,8 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
         _initializationMode = InitializationMode.Sync;
         _func = func;
     }
-
-    /// <summary>
-    /// Gets the value.
-    /// </summary>
-    /// <param name="key">The key.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>A task containing the result of the operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ValueTask<TValue> Get(TKey key, CancellationToken cancellationToken = default) => GetCore(key, cancellationToken);
-
-    /// <summary>
-    /// Attempts to execute get.
-    /// </summary>
-    /// <param name="key">The key.</param>
-    /// <param name="value">The value.</param>
-    /// <returns>A value indicating whether the operation succeeded.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryGet(TKey key, out TValue? value)
     {
@@ -125,19 +110,25 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
         return dict.TryGetValue(key, out value);
     }
 
-    /// <summary>
-    /// Gets core.
-    /// </summary>
-    /// <param name="key">Key used to locate the target entry.</param>
-    /// <param name="cancellationToken">Token used to cancel the operation.</param>
-    /// <returns>A task whose result is the value returned by get Core.</returns>
-    public async ValueTask<TValue> GetCore(TKey key, CancellationToken cancellationToken)
+    public ValueTask<TValue> GetCore(TKey key, CancellationToken cancellationToken)
     {
-        ConcurrentDictionary<TKey, TValue> dict = GetDictionaryOrThrow();
+        try
+        {
+            ConcurrentDictionary<TKey, TValue> dict = GetDictionaryOrThrow();
+            return dict.TryGetValue(key, out TValue? instance)
+                ? ValueTask.FromResult(instance)
+                : GetCoreSlow(key, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            return ValueTask.FromException<TValue>(ex);
+        }
+    }
 
-        if (dict.TryGetValue(key, out TValue? instance))
-            return instance;
-
+    private async ValueTask<TValue> GetCoreSlow(TKey key, CancellationToken cancellationToken)
+    {
+        ConcurrentDictionary<TKey, TValue> dict;
+        TValue? instance;
         using (await _locks.For(key).Lock(cancellationToken)
                           .NoSync())
         {
@@ -154,12 +145,6 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
         }
     }
 
-    /// <summary>
-    /// Gets sync.
-    /// </summary>
-    /// <param name="key">The key.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The result of the operation.</returns>
     public TValue GetSync(TKey key, CancellationToken cancellationToken = default)
     {
         ConcurrentDictionary<TKey, TValue> dict = GetDictionaryOrThrow();
@@ -179,27 +164,9 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
             return TryAddOrGetExistingSync(key, instance, dict);
         }
     }
-
-    /// <summary>
-    /// Gets the value.
-    /// </summary>
-    /// <typeparam name="TState">The TState type.</typeparam>
-    /// <param name="state">The state.</param>
-    /// <param name="keyFactory">The key factory.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>A task containing the result of the operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ValueTask<TValue> Get<TState>(TState state, Func<TState, TKey> keyFactory, CancellationToken cancellationToken = default) where TState : notnull =>
         GetCore(keyFactory(state), cancellationToken);
-
-    /// <summary>
-    /// Gets sync.
-    /// </summary>
-    /// <typeparam name="TState">The TState type.</typeparam>
-    /// <param name="state">The state.</param>
-    /// <param name="keyFactory">The key factory.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The result of the operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public TValue GetSync<TState>(TState state, Func<TState, TKey> keyFactory, CancellationToken cancellationToken = default) where TState : notnull =>
         GetSync(keyFactory(state), cancellationToken);
@@ -274,14 +241,6 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
                 throw new ArgumentOutOfRangeException();
         }
     }
-
-    /// <summary>
-    /// Executes the initialize operation.
-    /// </summary>
-    /// <typeparam name="TState">The TState type.</typeparam>
-    /// <param name="state">The state.</param>
-    /// <param name="factory">The factory.</param>
-    /// <returns>The result of the operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public SingletonKeyDictionary<TKey, TValue> Initialize<TState>(TState state, Func<TState, TKey, CancellationToken, ValueTask<TValue>> factory)
         where TState : notnull
@@ -290,10 +249,6 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
         return this;
     }
 
-    /// <summary>
-    /// Sets initialization.
-    /// </summary>
-    /// <param name="func">The func.</param>
     public void SetInitialization(Func<TKey, ValueTask<TValue>> func)
     {
         ArgumentNullException.ThrowIfNull(func);
@@ -302,10 +257,6 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
         _asyncKeyFunc = func;
     }
 
-    /// <summary>
-    /// Sets initialization.
-    /// </summary>
-    /// <param name="func">The func.</param>
     public void SetInitialization(Func<TKey, CancellationToken, ValueTask<TValue>> func)
     {
         ArgumentNullException.ThrowIfNull(func);
@@ -314,10 +265,6 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
         _asyncKeyTokenFunc = func;
     }
 
-    /// <summary>
-    /// Sets initialization.
-    /// </summary>
-    /// <param name="func">The func.</param>
     public void SetInitialization(Func<ValueTask<TValue>> func)
     {
         ArgumentNullException.ThrowIfNull(func);
@@ -326,10 +273,6 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
         _asyncFunc = func;
     }
 
-    /// <summary>
-    /// Sets initialization.
-    /// </summary>
-    /// <param name="func">The func.</param>
     public void SetInitialization(Func<TValue> func)
     {
         ArgumentNullException.ThrowIfNull(func);
@@ -338,10 +281,6 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
         _func = func;
     }
 
-    /// <summary>
-    /// Sets initialization.
-    /// </summary>
-    /// <param name="func">The func.</param>
     public void SetInitialization(Func<TKey, TValue> func)
     {
         ArgumentNullException.ThrowIfNull(func);
@@ -350,10 +289,6 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
         _keyFunc = func;
     }
 
-    /// <summary>
-    /// Sets initialization.
-    /// </summary>
-    /// <param name="func">The func.</param>
     public void SetInitialization(Func<TKey, CancellationToken, TValue> func)
     {
         ArgumentNullException.ThrowIfNull(func);
@@ -362,12 +297,6 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
         _keyTokenFunc = func;
     }
 
-    /// <summary>
-    /// Sets initialization.
-    /// </summary>
-    /// <typeparam name="TState">Type of state passed to the callback.</typeparam>
-    /// <param name="state">State value used by the variant.</param>
-    /// <param name="factory">Factory used to create a value when one is needed.</param>
     public void SetInitialization<TState>(TState state, Func<TState, TKey, CancellationToken, ValueTask<TValue>> factory) where TState : notnull
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -382,31 +311,10 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
         if (_initializationMode is not null || _stateFactory is not null)
             throw new InvalidOperationException("Setting the initialization of a SingletonKeyDictionary after it has already been set is not allowed");
     }
-
-    /// <summary>
-    /// Executes the remove operation.
-    /// </summary>
-    /// <param name="key">The key.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>A task containing the result of the operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ValueTask<bool> Remove(TKey key, CancellationToken cancellationToken = default) => TryRemoveAndDispose(key);
-
-    /// <summary>
-    /// Removes sync.
-    /// </summary>
-    /// <param name="key">The key.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>A value indicating whether the operation succeeded.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool RemoveSync(TKey key, CancellationToken cancellationToken = default) => TryRemoveAndDisposeSync(key);
-
-    /// <summary>
-    /// Executes the evict operation.
-    /// </summary>
-    /// <param name="key">The key.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>A task containing the result of the operation.</returns>
     public async ValueTask<bool> Evict(TKey key, CancellationToken cancellationToken = default)
     {
         ConcurrentDictionary<TKey, TValue> dict = GetDictionaryOrThrow();
@@ -433,12 +341,6 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
         return true;
     }
 
-    /// <summary>
-    /// Executes the evict sync operation.
-    /// </summary>
-    /// <param name="key">The key.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>A value indicating whether the operation succeeded.</returns>
     public bool EvictSync(TKey key, CancellationToken cancellationToken = default)
     {
         ConcurrentDictionary<TKey, TValue> dict = GetDictionaryOrThrow();
@@ -460,13 +362,6 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
         DisposeRemovedInstanceSync(instance);
         return true;
     }
-
-    /// <summary>
-    /// Attempts to execute remove.
-    /// </summary>
-    /// <param name="key">The key.</param>
-    /// <param name="value">The value.</param>
-    /// <returns>A value indicating whether the operation succeeded.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool TryRemove(TKey key, out TValue? value)
     {
@@ -474,11 +369,6 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
         return dict.TryRemove(key, out value);
     }
 
-    /// <summary>
-    /// Attempts to remove and dispose.
-    /// </summary>
-    /// <param name="key">The key.</param>
-    /// <returns>A task containing the result of the operation.</returns>
     public async ValueTask<bool> TryRemoveAndDispose(TKey key)
     {
         ConcurrentDictionary<TKey, TValue> dict = GetDictionaryOrThrow();
@@ -492,11 +382,6 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
         return false;
     }
 
-    /// <summary>
-    /// Attempts to remove and dispose sync.
-    /// </summary>
-    /// <param name="key">The key.</param>
-    /// <returns>A value indicating whether the operation succeeded.</returns>
     public bool TryRemoveAndDisposeSync(TKey key)
     {
         ConcurrentDictionary<TKey, TValue> dict = GetDictionaryOrThrow();
@@ -510,9 +395,6 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
         return false;
     }
 
-    /// <summary>
-    /// Releases resources used by the current instance.
-    /// </summary>
     public void Dispose()
     {
         if (!_disposed.TrySetTrue())
@@ -533,10 +415,6 @@ public partial class SingletonKeyDictionary<TKey, TValue> : ISingletonKeyDiction
         }
     }
 
-    /// <summary>
-    /// Asynchronously releases resources used by the current instance.
-    /// </summary>
-    /// <returns>A task that represents the asynchronous operation.</returns>
     public async ValueTask DisposeAsync()
     {
         if (!_disposed.TrySetTrue())
