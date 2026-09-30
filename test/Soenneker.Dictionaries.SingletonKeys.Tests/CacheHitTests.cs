@@ -14,7 +14,7 @@ public class CacheHitTests
         if (!condition) throw new InvalidOperationException(message);
     }
     [Test]
-    public async Task SingletonCacheInitializesOnceAndHitsDoNotInvokeFactories()
+    public async ValueTask SingletonCacheInitializesOnceAndHitsDoNotInvokeFactories()
     {
         int calls = 0;
         await using var cache = new SingletonKeyDictionary<string, object>(async (_, _) => { Interlocked.Increment(ref calls); await Task.Delay(10); return new object(); });

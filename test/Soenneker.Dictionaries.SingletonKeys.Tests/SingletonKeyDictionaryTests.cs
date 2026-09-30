@@ -9,7 +9,7 @@ namespace Soenneker.Dictionaries.SingletonKeys.Tests;
 public sealed class SingletonKeyDictionaryTests
 {
     [Test]
-    public async Task Different_keys_initialize_concurrently(CancellationToken cancellationToken)
+    public async ValueTask Different_keys_initialize_concurrently(CancellationToken cancellationToken)
     {
         var started = 0;
         var bothStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -35,7 +35,7 @@ public sealed class SingletonKeyDictionaryTests
     }
 
     [Test]
-    public async Task Keyed_initializes_once(CancellationToken cancellationToken)
+    public async ValueTask Keyed_initializes_once(CancellationToken cancellationToken)
     {
         var calls = 0;
 
@@ -54,7 +54,7 @@ public sealed class SingletonKeyDictionaryTests
     }
 
     [Test]
-    public async Task Comparer_equal_keys_share_initialization(CancellationToken cancellationToken)
+    public async ValueTask Comparer_equal_keys_share_initialization(CancellationToken cancellationToken)
     {
         var calls = 0;
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -82,7 +82,7 @@ public sealed class SingletonKeyDictionaryTests
     }
 
     [Test]
-    public async Task T1_argFactory_only_runs_when_missing(CancellationToken cancellationToken)
+    public async ValueTask T1_argFactory_only_runs_when_missing(CancellationToken cancellationToken)
     {
         var argFactoryCalls = 0;
 
@@ -107,7 +107,7 @@ public sealed class SingletonKeyDictionaryTests
     }
 
     [Test]
-    public async Task T1_TryGet_and_GetAll_work(CancellationToken cancellationToken)
+    public async ValueTask T1_TryGet_and_GetAll_work(CancellationToken cancellationToken)
     {
         var dict = new SingletonKeyDictionary<string, string, int>((key, arg) =>
             new ValueTask<string>($"{key}-{arg}"));
@@ -125,7 +125,7 @@ public sealed class SingletonKeyDictionaryTests
     }
 
     [Test]
-    public async Task T1_clear_disposes_values(CancellationToken cancellationToken)
+    public async ValueTask T1_clear_disposes_values(CancellationToken cancellationToken)
     {
         var disposed = 0;
 
@@ -142,7 +142,7 @@ public sealed class SingletonKeyDictionaryTests
     }
 
     [Test]
-    public async Task T1T2_tuple_argFactory_only_runs_when_missing(CancellationToken cancellationToken)
+    public async ValueTask T1T2_tuple_argFactory_only_runs_when_missing(CancellationToken cancellationToken)
     {
         var argFactoryCalls = 0;
 
@@ -167,7 +167,7 @@ public sealed class SingletonKeyDictionaryTests
     }
 
     [Test]
-    public async Task DisposeAsync_waits_for_and_disposes_inflight_creation(CancellationToken cancellationToken)
+    public async ValueTask DisposeAsync_waits_for_and_disposes_inflight_creation(CancellationToken cancellationToken)
     {
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
