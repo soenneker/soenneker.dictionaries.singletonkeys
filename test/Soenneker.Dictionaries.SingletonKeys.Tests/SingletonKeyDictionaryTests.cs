@@ -27,7 +27,7 @@ public sealed class SingletonKeyDictionaryTests
         ValueTask<string> first = dict.Get(1, cancellationToken: cancellationToken);
         ValueTask<string> second = dict.Get(2, cancellationToken: cancellationToken);
 
-        await bothStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await bothStarted.Task.WaitAsync(TimeSpan.FromSeconds(5), cancellationToken: cancellationToken);
         release.SetResult();
 
         (await first).Should().Be("1");
